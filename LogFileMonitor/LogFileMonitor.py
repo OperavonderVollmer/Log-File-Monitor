@@ -10,7 +10,6 @@ import threading
 from watchfiles import watch
 import chardet
 
-
 class Monitor:
     def __init__(self, name: str, log_file_path: str, offset: int = -2, encoding: str = "utf-8"):
         self._offset = offset
