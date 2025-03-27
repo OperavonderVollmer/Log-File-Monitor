@@ -1,2 +1,2 @@
 watchfiles
-git+https://github.com/OperavonderVollmer/OperaPowerRelay.git@v1.1.4
+git+https://github.com/OperavonderVollmer/OperaPowerRelay.git
