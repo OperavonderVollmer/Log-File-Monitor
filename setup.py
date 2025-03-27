@@ -5,7 +5,7 @@ setup(
     version="1.0",
     packages=find_packages(),
     install_requires=[
-        "watchfiles"
+        "watchfiles",
         "OperaPowerRelay @ git+https://github.com/OperavonderVollmer/OperaPowerRelay.git@v1.1.4"
     ],
     python_requires=">=3.7",
