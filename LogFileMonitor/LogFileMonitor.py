@@ -347,9 +347,20 @@ if __name__ == '__main__':
 
     PATHS = _load_json()
 
+    while True:
+        decision = opr.input_from("LogFileMonitor - Main", "Select Production (1) or Testing (2)")
+        if decision == "1":
+            SOCKET_THREAD.start()
+            break
 
-    # SOCKET_THREAD.start()
-    DUMMY_SOCKET.start()
+        elif decision == "2":
+            DUMMY_SOCKET.start()
+            break
+
+        else:
+            opr.print_from("LogFileMonitor - Main", "Invalid selection. Please enter 1 or 2.")
+
+
     retry_count = 0
     while True:
         
@@ -375,6 +386,7 @@ if __name__ == '__main__':
 
     opr.print_from("LogFileMonitor", "Exiting LogFileMonitor")
     SOCKET.close()
+    
     if SOCKET_THREAD.is_alive():
         SOCKET_THREAD.join()
     
@@ -382,7 +394,4 @@ if __name__ == '__main__':
         DUMMY_SOCKET.join()
 
     sys.exit(0)
-
-#TODO: ADD QUICK STARTS AND FULL THINGIES FOR ADD MONITOR
-
 
