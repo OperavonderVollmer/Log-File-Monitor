@@ -35,7 +35,7 @@ Log File Monitor is a Python package designed to detect changes in a specified l
 ### Installing via pip:
 
 ```sh
-pip install git+https://github.com/OperavonderVollmer/LogFileMonitor.git@latest
+pip install git+https://github.com/OperavonderVollmer/LogFileMonitor.git@main
 ```
 
 Ensure that all necessary dependencies are installed in your environment.
