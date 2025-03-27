@@ -6,7 +6,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         "watchfiles"
-        "OperaPowerReplay @ git+https://github.com/OperavonderVollmer/OperaPowerRelay.git@v1.1.4"
+        "OperaPowerRelay @ git+https://github.com/OperavonderVollmer/OperaPowerRelay.git@v1.1.4"
     ],
     python_requires=">=3.7",
     author="Opera von der Vollmer",
