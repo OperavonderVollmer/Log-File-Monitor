@@ -1,0 +1,3 @@
+watchdog
+watchfiles
+git+https://github.com/OperavonderVollmer/OperaPowerRelay.git@v1.1.2
