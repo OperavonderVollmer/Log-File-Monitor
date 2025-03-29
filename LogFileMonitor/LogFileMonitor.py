@@ -9,6 +9,7 @@ import queue
 import threading
 from watchfiles import watch
 import chardet
+from typing import Iterator
 
 class Monitor:
     def __init__(self, name: str, log_file_path: str, offset: int = -2, encoding: str = "utf-8"):
@@ -36,11 +37,11 @@ class Monitor:
             for change_type, file_path in changes:
                 if file_path == self._log_file_path:
                     try:
-                        with open(self._log_file_path, "rb") as f:
-                            f.seek(0, 2)  # Move to the end of the file
-                            f.seek(max(f.tell() - 4096, 0), 0)  # Move back 4KB (adjust if needed)
+                        with open(self._log_file_path, "r", encoding=self._encoding) as f:
+                            f.seek(0, 2)
+                            f.seek(max(f.tell() - 4096, 0), 0)  
                             lines = f.readlines()
-                            last_line = lines[self._offset].decode(self._encoding).strip() if lines else None
+                            last_line = lines[self._offset].strip() if lines else None
 
                             self.Communicate(last_line)
 
@@ -93,36 +94,40 @@ class Monitor:
 
 
 
-def _load_json():
+def _load_json(file:str):
     opr.print_from("LogFileMonitor - Load JSON", "Loading config file")
-    root_dir = os.path.dirname(os.path.abspath(__file__))
-    config_file_path = os.path.join(root_dir, "config.json")
+    root_dir = os.path.dirname(file)
+    config_file_path = os.path.join(root_dir, "config_log.json")
     if not os.path.exists(config_file_path):
         with open(config_file_path, "w") as f:
-            opr.print_from("LogFileMonitor - Load JSON", "config.json not found, creating empty file")
+            opr.print_from("LogFileMonitor - Load JSON", "config_log.json not found, creating empty file")
             f.write("{}")
     
     with open(config_file_path, "r") as f:
-        opr.print_from("LogFileMonitor - Load JSON", "SUCCESS: Loaded config.json")
+        opr.print_from("LogFileMonitor - Load JSON", "SUCCESS: Loaded config_log.json")
         return json.load(f)
 
-def _save_json():
+def _save_json(file:str):
     opr.print_from("LogFileMonitor - Save JSON", "Saving config file")
-    root_dir = os.path.dirname(os.path.abspath(__file__))
-    config_file_path = os.path.join(root_dir, "config.json")
+    root_dir = os.path.dirname(file)
+    config_file_path = os.path.join(root_dir, "config_log.json")
     with open(config_file_path, "w") as f:
         json.dump(PATHS, f)
-        opr.print_from("LogFileMonitor - Save JSON", "SUCCESS: Saved config.json")
+        opr.print_from("LogFileMonitor - Save JSON", "SUCCESS: Saved config_log.json")
 
-def _add_monitor() -> str:
+    opr.print_from("LogFileMonitor - Save JSON", f"SUCCESS: Saved {config_file_path}")
+
+def _add_monitor(mode: str = "", name: str = "", path: str = "", _offset: str = "", _encoding: str = "") -> str:
     
-    while True:
-        mode = opr.input_from("LogFileMonitor - Wizard | Add", "[1] Quick [2] Quick Start [3] Custom [4] Custom Start")
-        if mode in ["1", "2", "3", "4"]:
-            break
-        opr.print_from("LogFileMonitor - Wizard | Add", "Invalid input")
+    if not mode:
+        while True:
+            mode = opr.input_from("LogFileMonitor - Wizard | Add", "[1] Quick [2] Quick Start [3] Custom [4] Custom Start")
+            if mode in ["1", "2", "3", "4"]:
+                break
+            opr.print_from("LogFileMonitor - Wizard | Add", "Invalid input")
 
-    name = opr.input_from("LogFileMonitor - Wizard | Add","Monitor Name")
+    if not name:
+        name = opr.input_from("LogFileMonitor - Wizard | Add", "Monitor Name")
 
     s_name = opr.sanitize_text(name)[0]
 
@@ -131,22 +136,21 @@ def _add_monitor() -> str:
 
 
     if not PATHS:
-        return "There are no saved paths in the config file"
-    
+        return "There are no saved paths in the config file"   
 
-
-    opr.print_from("LogFileMonitor - Wizard | Add", "Select a path", 1)
-    for i, path in enumerate(PATHS.keys(), 1):
-        opr.print_from("LogFileMonitor - Wizard | Add", f"[{i}]: {path}")
-    
-    while True:        
-        choice = opr.input_from("LogFileMonitor - Wizard | Add", f"Select a path (1-{len(PATHS)})")
-        if choice.isdigit() and int(choice) in range(1, len(PATHS) + 1):
-            break
-        opr.print_from("LogFileMonitor - Wizard | Add","Invalid selection. Please enter a valid number.")    
+    if not path:
+        opr.print_from("LogFileMonitor - Wizard | Add", "Select a path", 1)
+        for i, path in enumerate(PATHS.keys(), 1):
+            opr.print_from("LogFileMonitor - Wizard | Add", f"[{i}]: {path}")
+        
+        while True:        
+            choice = opr.input_from("LogFileMonitor - Wizard | Add", f"Select a path (1-{len(PATHS)})")
+            if choice.isdigit() and int(choice) in range(1, len(PATHS) + 1):
+                break
+            opr.print_from("LogFileMonitor - Wizard | Add","Invalid selection. Please enter a valid number.")    
         
 
-    path = list(PATHS.keys())[int(choice) - 1]
+        path = list(PATHS.keys())[int(choice) - 1]
     
     chosen_path, prefix = PATHS[path]
 
@@ -154,13 +158,13 @@ def _add_monitor() -> str:
 
     if s_path in [monitor._log_file_path for monitor in MONITORS]:
         return f"FAILED: Monitor with path {s_path} already exists"
+    
+    encoding = _encoding or "utf-8"
+    offset = _offset or -2
 
-    encoding = "utf-8"
-    offset = -2
-
-    if mode == "2":
+    if mode == "3" or mode == "4":
         while True:
-            en_choice = opr.input_from("LogFileMonitor - Wizard | Add", f"Please select an encoding: [1] UTF-8 [2] UTF-16 [3] UTF-32")
+            en_choice = opr.input_from("LogFileMonitor - Wizard | Add", f"Please select an encoding: [1] UTF-8 | [2] UTF-16 | [3] UTF-32")
             if en_choice in ["1", "2", "3"]:
                 break
             opr.print_from("LogFileMonitor - Wizard | Add", "Invalid input")
@@ -168,12 +172,12 @@ def _add_monitor() -> str:
         encoding = ["utf-8", "utf-16", "utf-32"][int(en_choice) - 1]
         
         while True:
-            offset = int(opr.input_from("LogFileMonitor - Wizard | Add", "Please enter a number for the offset: "))
+            offset = opr.input_from("LogFileMonitor - Wizard | Add", "Please enter a number for the offset")
             if offset.isdigit():                
                 break
             opr.print_from("LogFileMonitor - Wizard | Add", "Invalid input")
         if offset > 0:
-            offset = offset * -1
+            offset = int(offset) * -1
         
 
     monitor = Monitor(s_name, s_path, offset, encoding)
@@ -253,7 +257,7 @@ def _config_path() -> str:
 
     PATHS[s_name] = s_path, s_prefix
 
-    _save_json()
+    _save_json(FILEPATH)
 
     return f"Path added: {s_name} - {s_path} - {s_prefix}"
 
@@ -321,6 +325,7 @@ def socket_thread():
             break
         break
 
+
 def _dummy_socket():
     opr.print_from("LogFileMonitor - Dummy Socket", "Starting dummy socket thread")
     while True:
@@ -328,39 +333,47 @@ def _dummy_socket():
             _ = OUTPUT_QUEUE.get(timeout=1)
             opr.print_from("LogFileMonitor - Dummy Socket", _)
         except queue.Empty:
-            time.sleep(1)
             continue
 
 def communicate_out(output: str) -> None:
     OUTPUT_QUEUE.put(output)
 
-PORT = 50006
-MONITORS: list[Monitor] = []
-PATHS: dict[str, tuple[str, str]] = {}
-SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-OUTPUT_QUEUE = queue.Queue()
-SOCKET_THREAD = threading.Thread(target=socket_thread, daemon=True)
-DUMMY_SOCKET = threading.Thread(target=_dummy_socket, daemon=True)
+def initialize(file: str = "") -> None:
+    """
+    Initializes the LogFileMonitor by loading the config file and setting up the socket.
 
-if __name__ == '__main__':
+    Args:
+        file (str): The path to the config file
+    """
+    
+    global PATHS, SOCKET
     opr.print_from("LogFileMonitor", "Starting LogFileMonitor")
 
-    PATHS = _load_json()
+    if not file:
+        file = os.path.abspath(__file__)
 
-    while True:
-        decision = opr.input_from("LogFileMonitor - Main", "Select Production (1) or Testing (2)")
-        if decision == "1":
-            SOCKET_THREAD.start()
-            break
+    PATHS = _load_json(file)
 
-        elif decision == "2":
-            DUMMY_SOCKET.start()
-            break
+    global FILEPATH
 
-        else:
-            opr.print_from("LogFileMonitor - Main", "Invalid selection. Please enter 1 or 2.")
+    FILEPATH = file
+    SOCKET = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    _save_json(file)
+
+def deinitialize() -> None:
+    global SOCKET, SOCKET_THREAD, DUMMY_SOCKET
+
+    opr.print_from("LogFileMonitor", "Exiting LogFileMonitor")
+    
+    _save_json(FILEPATH)
+
+    SOCKET.close()
+
+    sys.exit(0)
 
 
+def wizard_interface() -> None:
     retry_count = 0
     while True:
         
@@ -381,17 +394,40 @@ if __name__ == '__main__':
                 opr.print_from("LogFileMonitor", "Too many retries, exiting...")
                 break
             opr.print_from("LogFileMonitor", "Retrying...")
-    
-    _save_json()
 
-    opr.print_from("LogFileMonitor", "Exiting LogFileMonitor")
-    SOCKET.close()
-    
-    if SOCKET_THREAD.is_alive():
-        SOCKET_THREAD.join()
-    
-    if DUMMY_SOCKET.is_alive():
-        DUMMY_SOCKET.join()
 
-    sys.exit(0)
+
+
+PORT = 50006
+MONITORS: list[Monitor] = []
+PATHS: dict[str, tuple[str, str]] = {}
+SOCKET = None
+OUTPUT_QUEUE = queue.Queue()
+SOCKET_THREAD = threading.Thread(target=socket_thread, daemon=True)
+DUMMY_SOCKET = threading.Thread(target=_dummy_socket, daemon=True)
+FILEPATH = ""
+
+
+
+if __name__ == '__main__':
+    initialize()
+
+    while True:
+        decision = opr.input_from("LogFileMonitor - Main", "Mode\n[1]Socket\n[2]Dummy Socket")
+        if decision == "1":
+            SOCKET_THREAD.start()
+            break
+
+        elif decision == "2":
+            DUMMY_SOCKET.start()
+            break
+
+        else:
+            opr.print_from("LogFileMonitor - Main", "Invalid selection. Please enter 1 or 2.")
+
+
+    wizard_interface()
+    
+    
+    deinitialize()
 
