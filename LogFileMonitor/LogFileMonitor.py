@@ -8,12 +8,44 @@ import sys
 import queue
 import threading
 from watchfiles import watch
-import chardet
-from typing import Iterator
-
 class Monitor:
-    def __init__(self, name: str, log_file_path: str, offset: int = -2, encoding: str = "utf-8"):
-        self._offset = offset
+    """
+    A Monitor class that monitors a log file for new lines and sends them to the main thread to be processed.
+
+    Parameters
+    ----------
+    name : str
+        The name of the monitor.
+    log_file_path : str
+        The path to the log file.
+    encoding : str, optional
+        The encoding of the log file. Defaults to utf-8.
+
+    Attributes
+    ----------
+    _name : str
+        The name of the monitor.
+    _status : str
+        The status of the monitor. Can be either "OFFLINE", "STANDBY", or "RUNNING".
+    _log_file_path : str
+        The path to the log file.
+    _encoding : str
+        The encoding of the log file.
+    _observer_thread : threading.Thread
+        The thread that observes the log file for new lines.
+    _stop_event : threading.Event
+        An event that can be set to stop the observer thread.
+
+    Methods
+    -------
+    Start()
+        Starts the observer thread.
+    Stop()
+        Stops the observer thread.
+    Communicate(new_lines)
+        Sends the new lines to the main thread to be processed.
+    """
+    def __init__(self, name: str, log_file_path: str, encoding: str = "utf-8"):
         self._name = name
         self._status = "OFFLINE"
         self._log_file_path = opr.clean_path(log_file_path)
@@ -21,13 +53,19 @@ class Monitor:
         self._encoding = encoding
 
         self._observer_thread = None
-        self._stop_event = threading.Event()
+        self._stop_event = threading.Event() # defunc
 
         opr.print_from("LogFileMonitor - Monitor Init", f"SUCCESS: Created {self._name} monitor")
         self._status = "STANDBY"
     
 
-    def _observer_thread_func(self) -> None:
+    def _defunc_observer_thread_func(self) -> None:
+        """
+        Do not use this method, use _observer_thread_func instead.
+        Observes the log file for new lines and sends them to the main thread to be processed.
+
+        This method is used for testing purposes only.
+        """
         opr.print_from("LogFileMonitor - Observer Thread", f"SUCCESS: Thread started for {self._name} monitor")
 
         for changes in watch(os.path.dirname(self._log_file_path)):
@@ -41,7 +79,7 @@ class Monitor:
                             f.seek(0, 2)
                             f.seek(max(f.tell() - 4096, 0), 0)  
                             lines = f.readlines()
-                            last_line = lines[self._offset].strip() if lines else None
+                            last_line = lines[-1].strip() if lines else None
 
                             self.Communicate(last_line)
 
@@ -49,6 +87,26 @@ class Monitor:
                         opr.print_from("LogFileMonitor - Observer Thread", f"ERROR: Failed to read log file: {e}")
                         continue
 
+        opr.print_from("LogFileMonitor - Observer Thread", f"SUCCESS: Thread stopped for {self._name} monitor")
+
+    def _observer_thread_func(self) -> None:
+
+        time.sleep(1)
+        opr.print_from("LogFileMonitor - Observer Thread", f"SUCCESS: Thread started for {self._name} monitor")
+
+        while self._status == "RUNNING":
+            
+            last_size = os.path.getsize(self._log_file_path)
+
+            time.sleep(1)  
+            current_size = os.path.getsize(self._log_file_path)
+            if current_size > last_size:  
+                with open(self._log_file_path, "r", encoding=self._encoding) as f:
+                    f.seek(last_size) 
+                    new_lines = f.readlines()
+                    self.Communicate(new_lines)
+                last_size = current_size 
+            
         opr.print_from("LogFileMonitor - Observer Thread", f"SUCCESS: Thread stopped for {self._name} monitor")
 
     
@@ -59,8 +117,7 @@ class Monitor:
     def Start(self) -> None:
         
         if self._status == "RUNNING":
-            return
-        
+            return       
 
         try:
             self._stop_event.clear()
@@ -117,7 +174,7 @@ def _save_json(file:str):
 
     opr.print_from("LogFileMonitor - Save JSON", f"SUCCESS: Saved {config_file_path}")
 
-def _add_monitor(mode: str = "", name: str = "", path: str = "", _offset: str = "", _encoding: str = "") -> str:
+def _add_monitor(mode: str = "", name: str = "", path: str = "", _encoding: str = "") -> str:
     
     if not mode:
         while True:
@@ -160,7 +217,6 @@ def _add_monitor(mode: str = "", name: str = "", path: str = "", _offset: str = 
         return f"FAILED: Monitor with path {s_path} already exists"
     
     encoding = _encoding or "utf-8"
-    offset = _offset or -2
 
     if mode == "3" or mode == "4":
         while True:
@@ -171,16 +227,8 @@ def _add_monitor(mode: str = "", name: str = "", path: str = "", _offset: str = 
 
         encoding = ["utf-8", "utf-16", "utf-32"][int(en_choice) - 1]
         
-        while True:
-            offset = opr.input_from("LogFileMonitor - Wizard | Add", "Please enter a number for the offset")
-            if offset.isdigit():                
-                break
-            opr.print_from("LogFileMonitor - Wizard | Add", "Invalid input")
-        if offset > 0:
-            offset = int(offset) * -1
-        
 
-    monitor = Monitor(s_name, s_path, offset, encoding)
+    monitor = Monitor(s_name, s_path, encoding)
     MONITORS.append(monitor)
     if mode == "2" or mode == "4":
         monitor.Start()
