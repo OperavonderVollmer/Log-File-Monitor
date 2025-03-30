@@ -98,7 +98,7 @@ class Monitor:
             
             last_size = os.path.getsize(self._log_file_path)
 
-            time.sleep(1)  
+            time.sleep(0.25)  
             current_size = os.path.getsize(self._log_file_path)
             if current_size > last_size:  
                 with open(self._log_file_path, "r", encoding=self._encoding) as f:
